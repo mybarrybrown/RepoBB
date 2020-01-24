@@ -1,229 +1,215 @@
-OKD: The Origin Community Distribution of Kubernetes
-=======================================================
+# FS 2020 Schematics Lab
+## Introduction
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/openshift/origin)](https://goreportcard.com/report/github.com/openshift/origin)
-[![GoDoc](https://godoc.org/github.com/openshift/origin?status.png)](https://godoc.org/github.com/openshift/origin)
-[![Travis](https://travis-ci.org/openshift/origin.svg?branch=master)](https://travis-ci.org/openshift/origin)
-[![Jenkins](https://ci.openshift.redhat.com/jenkins/buildStatus/icon?job=devenv_ami)](https://ci.openshift.redhat.com/jenkins/job/devenv_ami/)
-[![Join the chat at freenode:openshift-dev](https://img.shields.io/badge/irc-freenode%3A%20%23openshift--dev-blue.svg)](http://webchat.freenode.net/?channels=%23openshift-dev)
-[![Licensed under Apache License version 2.0](https://img.shields.io/github/license/openshift/origin.svg?maxAge=2592000)](https://www.apache.org/licenses/LICENSE-2.0)
+This lab will introduce you to the concepts within Schematics and how to create a VPC, setup two subnets, and place a virtual instance in each as well as deploy a load balancer attached to the servers. A simple cloud-init script will install nginx, just to showcase an http response for proving out the example.
 
-***OKD*** is the Origin community distribution of [Kubernetes](https://kubernetes.io) optimized for continuous application development and multi-tenant deployment.  OKD adds developer and operations-centric tools on top of Kubernetes to enable rapid application development, easy deployment and scaling, and long-term lifecycle maintenance for small and large teams. ***OKD*** is also referred to as ***Origin*** in github and in the documentation.
+## Prerequisites
 
-[![Watch the full asciicast](docs/openshift-intro.gif)](https://asciinema.org/a/49402)
+1. You must have an IBM Cloud account. You can sign up for a trial account if you do not have an account. The account will require the IBMid. If you do not have an IBMid, register and one will be created.
 
-**Features:**
+2. You will need to have an Infrastructure Username and API Key as well as an IBM Cloud API Key. Additionally, you should have the IBM Cloud CLI installed.
 
-* Easily build applications with integrated service discovery and persistent storage.
-* Quickly and easily scale applications to handle periods of increased demand.
-  * Support for automatic high availability, load balancing, health checking, and failover.
-* Push source code to your Git repository and automatically deploy containerized applications.
-* Web console and command-line client for building and monitoring applications.
-* Centralized administration and management of an entire stack, team, or organization.
-  * Create reusable templates for components of your system, and iteratively deploy them over time.
-  * Roll out modifications to software stacks to your entire organization in a controlled fashion.
-  * Integration with your existing authentication mechanisms, including LDAP, Active Directory, and public OAuth providers such as GitHub.
-* Multi-tenancy support, including team and user isolation of containers, builds, and network communication.
-  * Allow developers to run containers securely with fine-grained controls in production.
-  * Limit, track, and manage the developers and teams on the platform.
-* Integrated Docker registry, automatic edge load balancing, cluster logging, and integrated metrics.
+3. Check to make certain you have the appropriate role access on your account to provision infrastructure. If you are assigned an IBM Cloud Schematics service access role, you can view, create, update, or delete workspaces in IBM Cloud Schematics. To provision the IBM Cloud resources that you defined in your Terraform template, you must be assigned the IAM platform or service access role that is required to provision the individual resource. Refer to the [documentation](https://cloud.ibm.com/docs/home/alldocs) for your resource to determine the access policies that you need to provision and work with your resource. To successfully provision IBM Cloud resources, users must have access to a paid IBM Cloud account. Charges incur when you create the resources in the IBM Cloud account, which is initiated by clicking the Apply plan button. Here's a link to the docs for [Schematics Access](https://cloud.ibm.com/docs/schematics?topic=schematics-access).
 
-**Learn More:**
+4. In this lab we will be using the following resources. Double-check your access prior to applying the plan.
+- Schematics
+- VPC Infrastructure
 
-* **[Public Documentation](https://docs.openshift.org/latest/welcome/)**
-  * **[API Documentation](https://docs.openshift.org/latest/rest_api/openshift_v1.html)**
-* Our **[Trello Roadmap](https://ci.openshift.redhat.com/roadmap_overview.html)** covers the epics and stories being worked on (click through to individual items)
+![IAM Access](docs/schematics-iam-access.png)
 
-For questions or feedback, reach us on [IRC on #openshift-dev](https://botbot.me/freenode/openshift-dev/) on Freenode or post to our [mailing list](https://lists.openshift.redhat.com/openshiftmm/listinfo/dev).
+5. If you want to modify the variables for Image and Compute Profile, you will need to obtain these values from the CLI.
+For Gen2 resource interaction via the CLI, you are required to have the infrastructure-services plugin.
 
-Getting Started
----------------
+`ibmcloud plugin install infrastructure-service`
 
-### Installation
+This lab will be using Gen 2 of the VPC. Set your CLI to target Gen2.
 
-If you have downloaded the client tools from the [releases page](https://github.com/openshift/origin/releases), place the included binaries in your PATH.
+`ibmcloud is target --gen 2`
 
-* On any system with a Docker engine installed, you can run `oc cluster up` to get started immediately.  Try it out now!
-* For a full cluster installation using [Ansible](https://github.com/openshift/openshift-ansible), follow the [Advanced Installation guide](https://docs.openshift.org/latest/install_config/install/advanced_install.html)
-* To build and run from source, see [CONTRIBUTING.adoc](CONTRIBUTING.adoc)
+List the available images, and record the ID of the image in which you wish to use. Ubuntu 18.04 is set by default.
 
-The latest OKD Origin images are published to the Docker Hub under the `openshift` account at https://hub.docker.com/u/openshift/. We use a rolling tag system as of v3.9, where the `:latest` tag always points to the most recent alpha release on `master`, the `v3.X` tag points to the most recent build for that release (pre-release and post-release), and `v3.X.Y` is a stable tag for patches to a release.
+`ibmcloud is images list`
 
-### Concepts
+List the available Compute profiles and record the Name of the profile in which you wish to use. cx2-2x4 is set by default.
 
-OKD builds a developer-centric workflow around Docker containers and Kubernetes runtime concepts.  An **Image Stream** lets you easily tag, import, and publish Docker images from the integrated registry.  A **Build Config** allows you to launch Docker builds, build directly from source code, or trigger Jenkins Pipeline jobs whenever an image stream tag is updated.  A **Deployment Config** allows you to use custom deployment logic to rollout your application, and Kubernetes workflow objects like **DaemonSets**, **Deployments**, or **StatefulSets** are upgraded to automatically trigger when new images are available.  **Routes** make it trivial to expose your Kubernetes services via a public DNS name. As an administrator, you can enable your developers to request new **Projects** which come with predefined roles, quotas, and security controls to fairly divide access.
+`imbcloud is instance-profiles`
 
-For more on the underlying concepts of OKD, please see the [documentation site](https://docs.openshift.org/latest/welcome/index.html).
+6. If you choose to do the optional steps at the end of the lab, you must fork the project into your own repo so that you can make the required modifications and push back into your repo. If you choose to not do the additional steps, or do not have a Github account available, you can just use the lab Git url, but will not have the ability to modify any of the plan. All modifications will only be done via the variables available.
 
-### OKD API
+## Task 1: Get Familiar with the Terraform Templates
+Within the project, there are various files in which you will need to have familiarity with, as well as know which variables you will be required to specify values for.
 
-The OKD API is located on each server at `https://<host>:8443/apis`. OKD adds its own API groups alongside the Kubernetes APIs. For more, [see the API documentation](https://docs.openshift.org/latest/rest_api).
+- **provider.tf** - Setup for the IBM Provider as well as the required credentials to be used.
+- **variables.tf** - Holds the variables and possible default values to be used for the plan.
+- **main.td** - This file holds the majority of the resources to be created, including the VPC and virtual instances.
+- **lb.tf** - This file holds the Load Balancer resource as well as defining the pool members. 
+- **cloud-init-apptier.tf** - This file contains the Cloud-Init script to be used for each virtual instance to install a simple nginx service.
+- **outputs.tf** - This file contains the output varibales that we want to see when the plan is executed and completed. 
 
-### Kubernetes
+## Task 2: Create a new Workspace
 
-OKD extends Kubernetes with security and other developer centric concepts.  Each OKD release ships slightly after the Kubernetes release has stabilized. Version numbers are aligned - OKD v3.9 is Kubernetes v1.9.
+Each environment that you create will require a Workspace.
 
-If you're looking for more information about using Kubernetes or the lower level concepts that OKD depends on, see the following:
+1. Login in to your IBM Cloud account via the portal. Navigate to the menu and select [Schematics](https://cloud.ibm.com/schematics).
 
-* [Kubernetes Getting Started](https://kubernetes.io/docs/tutorials/kubernetes-basics/)
-* [Kubernetes Documentation](https://kubernetes.io/docs/)
-* [Kubernetes API](https://docs.openshift.org/latest/rest_api)
+![Schematics](docs/schematics-menu.png)
 
+- Click the ![Create Workspace](docs/create-workspace.png) button.
+- Provide a Workspace Name.
+- Enter any tags in which you would like to specify.
+- Select the Resource Group, this can also be reflected in the Plan variables.
+- Add a description of your choice.
 
-### What can I run on OKD?
+![Workspace Name](docs/workspace-name-group-description.png)
 
-OKD is designed to run any existing Docker images.  Additionally, you can define builds that will produce new Docker images using a `Dockerfile`.
+- Add the Github URL to this lab, or the forked URL from your own repository if you chose to use a fork.
+- A personal access token should not be required.
+- Click the "Retrieve input variables" button.
 
-For an easier experience running your source code, [Source-to-Image (S2I)](https://github.com/openshift/source-to-image) allows developers to simply provide an application source repository containing code to build and run.  It works by combining an existing S2I-enabled Docker image with application source to produce a new runnable image for your application.
+![Workspace Repo URL](docs/workspace-repo-url.png)
 
-You can see the [full list of Source-to-Image builder images](https://docs.openshift.org/latest/using_images/s2i_images/overview.html) and it's straightforward to [create your own](https://blog.openshift.com/create-s2i-builder-image/).  Some of our available images include:
+2. Set your variables for the items in wish you choose to modify by entering a new value in the "Override value" textbox
+- **iaas_classic_username** - Enter your IaaS Username (Be sure to set this as Sensitive)
+- **iaas_classic_api_key** - Enter your IaaS API Key (Be sure to set this as Sensitive)
+- **ibmcloud_api_key** - Enter your PaaS/IBM Cloud API Key (Be sure to set this as Sensitive)
+- **ibmcloud_region** - Select the region in which you want to deploy the VPC into, default set to Dallas
+- **vpc_name** - Provide a name for your VPC, this will also be used to prefix some other resources
+- **vpc1_cidr** - Provide a valid CIDR block to use for your VPC
+- **zone1** - Enter the initial Zone to use within your region. default: us-south-1
+- **zone2** - Enter a secondary Zone to use within the region. default: us-south-2
+- **ssh_public_key** - Enter the contents of your SSH Public key to be used for the Virtual instances
+- **image** - Provide the ID of the OS Image you wish to use
+- **profile** - Provide the name of the Instance Profile type you wish to provision
 
-  * [Ruby](https://github.com/sclorg/s2i-ruby-container)
-  * [Python](https://github.com/sclorg/s2i-python-container)
-  * [Node.js](https://github.com/sclorg/s2i-nodejs-container)
-  * [PHP](https://github.com/sclorg/s2i-php-container)
-  * [Perl](https://github.com/sclorg/s2i-perl-container)
-  * [WildFly](https://github.com/openshift-s2i/s2i-wildfly)
+Once all of the values have been entered, click the Create button to finalize the new Workspace. This will not create any resources. In the next steps we will look at executing the Plan.
 
-Your application image can be easily extended with a database service with our [database images](https://docs.openshift.org/latest/using_images/db_images/overview.html):
+![Workspace Create Order](docs/workspace-order-create.png)
 
-  * [MySQL](https://github.com/sclorg/mysql-container)
-  * [MongoDB](https://github.com/sclorg/mongodb-container)
-  * [PostgreSQL](https://github.com/sclorg/postgresql-container)
+## Task 3: Apply the Plan
 
-### What sorts of security controls does OpenShift provide for containers?
+You now should have a Workspace created. The next step will be to Generate a Plan of your workspace template. Click "Generate plan" to create a Terraform execution plan. No resources will actually be created, but Schematics will go through the process of simulating the resource creation for the plan.
 
-OKD runs with the following security policy by default:
+![Workspace Generate Plan](docs/generate-plan-execution.png)
 
-  * Containers run as a non-root unique user that is separate from other system users
-    * They cannot access host resources, run privileged, or become root
-    * They are given CPU and memory limits defined by the system administrator
-    * Any persistent storage they access will be under a unique SELinux label, which prevents others from seeing their content
-    * These settings are per project, so containers in different projects cannot see each other by default
-  * Regular users can run Docker, source, and custom builds
-    * By default, Docker builds can (and often do) run as root. You can control who can create Docker builds through the `builds/docker` and `builds/custom` policy resource.
-  * Regular users and project admins cannot change their security quotas.
+Click on the "View log" link to see the progress of the executing plan. The log will tail as each of the resources go through their steps. When the log completes, you should see a log output stating the number of resources that will be added, changed and destroyed. For this plan, only resources should be added.
 
-Many Docker containers expect to run as root (and therefore edit all the contents of the filesystem). The [Image Author's guide](https://docs.openshift.org/latest/creating_images/guidelines.html#openshift-specific-guidelines) gives recommendations on making your image more secure by default:
-
-    * Don't run as root
-    * Make directories you want to write to group-writable and owned by group id 0
-    * Set the net-bind capability on your executables if they need to bind to ports < 1024
-
-If you are running your own cluster and want to run a container as root, you can grant that permission to the containers in your current project with the following command:
-
-    # Gives the default service account in the current project access to run as UID 0 (root)
-    oc adm add-scc-to-user anyuid -z default
-
-See the [security documentation](https://docs.openshift.org/latest/admin_guide/manage_scc.html) more on confining applications.
+![Workspace Plan Log](docs/generate-plan-execution-log.png)
 
 
-Support for Kubernetes Alpha Features
------------------------------------------
+![Workspace Summary](docs/workspace-summary.png)
 
-Some features from upstream Kubernetes are not yet enabled in OKD, for reasons including supportability, security, or limitations in the upstream feature.
+Now let's execute the plan to create the resources. Click the "Apply plan" button. Resources should not start to be provisioned. Like the "Generating Plan" step, you can also view the progress within the "View log" link while resources are being created. If any errors arise, you should see the reason within the log. This initial plan template should not have any issues, so if you have an issue, you may need to check your permissions and credentials.
 
-Kubernetes Definitions:
+## Task 4: Modify the Plan (optional)
+**Skip to Task 5 if you do not have a fork of the Github repo to use**
 
-* Alpha
-  * The feature is available, but no guarantees are made about backwards compatibility or whether data is preserved when feature moves to Beta.
-  * The feature may have significant bugs and is suitable for testing and prototyping.
-  * The feature may be replaced or significantly redesigned in the future.
-  * No migration to Beta is generally provided other than documentation of the change.
-* Beta
-  * The feature is available and generally agreed to solve the desired solution, but may need stabilization or additional feedback.
-  * The feature is potentially suitable for limited production use under constrained circumstances.
-  * The feature is unlikely to be replaced or removed, although it is still possible for feature changes that require migration.
+So far in the lab we created infrastructure in two zones. We will now look into adding a third zone to the deployment so we have full coverage of the three zones in the region. We will look at each of the resources that we will need to add and modify in the plan templates.
 
-OKD uses these terms in the same fashion as Kubernetes, and adds four more:
-
-* Not Yet Secure
-  * Features which are not yet enabled because they have significant security or stability risks to the cluster
-  * Generally this applies to features which may allow escalation or denial-of-service behavior on the platform
-  * In some cases this is applied to new features which have not had time for full security review
-* Potentially Insecure
-  * Features that require additional work to be properly secured in a multi-user environment
-  * These features are only enabled for cluster admins by default and we do not recommend enabling them for untrusted users
-  * We generally try to identify and fix these within 1 release of their availability
-* Tech Preview
-  * Features that are considered unsupported for various reasons are known as 'tech preview' in our documentation
-  * Kubernetes Alpha and Beta features are considered tech preview, although occasionally some features will be graduated early
-  * Any tech preview feature is not supported in OKD except through exemption
-* Disabled Pending Migration
-  * These are features that are new in Kubernetes but which originated in OKD, and thus need migrations for existing users
-  * We generally try to minimize the impact of features introduced upstream to Kubernetes on OKD users by providing seamless
-    migration for existing clusters.
-  * Generally these are addressed within 1 Kubernetes release
-
-The list of features that qualify under these labels is described below, along with additional context for why.
-
-Feature | Kubernetes | OKD       | Justification
-------- | ---------- | --------- | -------------
-Custom Resource Definitions | GA (1.9) | GA (3.9) |
-Stateful Sets | GA (1.9) | GA (3.9) |
-Deployment | GA (1.9) | GA (1.9) |
-Replica Sets | GA (1.9) | GA (3.9) | Replica Sets perform the same function as Replication Controllers, but have a more powerful label syntax. Both ReplicationControllers and ReplicaSets can be used.
-Ingress | Beta (1.9) | Tech Preview (3.9) | OKD launched with Routes, a more full featured Ingress object. Ingress rules can be read by the router (disabled by default), but because Ingress objects reference secrets you must grant the routers access to your secrets manually.  Ingress is still beta in upstream Kubernetes.
-PodSecurityPolicy | Beta (1.9) | Tech Preview (3.9) | OKD launched with SecurityContextConstraints, and then upstreamed them as PodSecurityPolicy. We plan to enable upstream PodSecurityPolicy so as to automatically migrate existing SecurityContextConstraints. PodSecurityPolicy has not yet completed a full security review, which will be part of the criteria for tech preview. <br>SecurityContextConstraints are a superset of PodSecurityPolicy features.
-NetworkPolicy | GA (1.6) | GA (3.7) |
-
-Please contact us if this list omits a feature supported in Kubernetes which does not run in Origin.
-
-
-Contributing
-------------
-
-You can develop [locally on your host](CONTRIBUTING.adoc#develop-locally-on-your-host) or with a [virtual machine](CONTRIBUTING.adoc#develop-on-virtual-machine-using-vagrant), or if you want to just try out Origin [download the latest Linux server, or Windows and Mac OS X client pre-built binaries](CONTRIBUTING.adoc#download-from-github).
-
-First, **get up and running with the** [**Contributing Guide**](CONTRIBUTING.adoc).
-
-All contributions are welcome - OKD uses the Apache 2 license and does not require any contributor agreement to submit patches.  Please open issues for any bugs or problems you encounter, ask questions on the OpenShift IRC channel (#openshift-dev on freenode), or get involved in the [Kubernetes project](https://github.com/kubernetes/kubernetes) at the container runtime layer.
-
-See [HACKING.md](https://github.com/openshift/origin/blob/master/HACKING.md) for more details on developing on Origin including how different tests are setup.
-
-If you want to run the test suite, make sure you have your environment set up, and from the `origin` directory run:
+1. First let's look into the variables that we think we will need to add to the project template. All variables are held within the `variables.tf` file. We currently have two zones specified, so we should add a third zone. We will also need to add the CIDR block to be used for the zone 3 address prefix and subnet. You can add any default value that you wish for this.
 
 ```
-# run the verifiers, unit tests, and command tests
-$ make check
-
-# run a command-line integration test suite
-$ hack/test-cmd.sh
-
-# run the integration server test suite
-$ hack/test-integration.sh
-
-# run the end-to-end test suite
-$ hack/test-end-to-end.sh
-
-# run all of the tests above
-$ make test
+variable "zone3" {
+  default = "us-south-3"
+}
 ```
 
-You'll need [etcd](https://github.com/coreos/etcd) installed and on your path for the integration and end-to-end tests to run, and Docker must be installed to run the end-to-end tests.  To install etcd you should be able to run:
-
 ```
-$ hack/install-etcd.sh
-```
-
-Some of the components of Origin run as Docker images, including the builders and deployment tools in `images/builder/docker/*` and `images/deploy/*`.  To build them locally run
-
-```
-$ hack/build-images.sh
+variable "zone3_cidr" {
+  default = "172.16.3.0/24"
+}
 ```
 
-To hack on the web console, check out the [assets/README.md](assets/README.md) file for instructions on testing the console and building your changes.
+2. Now that we have the new variables defined, we will need to add the resources to the template. Here we will create a new Address Prefix (`ibm_is_vpc_address_prefix`) resource as well as a new Subnet (`ibm_is_subnet`) resource.
 
-Security Response
------------------
-If you've found a security issue that you'd like to disclose confidentially
-please contact Red Hat's Product Security team. Details at
-https://access.redhat.com/security/team/contact
+```
+resource "ibm_is_vpc_address_prefix" "vpc-ap3" {
+  name = "vpc-ap3"
+  zone = "${var.zone3}"
+  vpc  = "${ibm_is_vpc.vpc1.id}"
+  cidr = "${var.zone3_cidr}"
+}
+```
+
+```
+resource "ibm_is_subnet" "subnet3" {
+  name            = "subnet3"
+  vpc             = "${ibm_is_vpc.vpc1.id}"
+  zone            = "${var.zone3}"
+  ipv4_cidr_block = "${var.zone3_cidr}"
+  depends_on      = ["ibm_is_vpc_address_prefix.vpc-ap3"]
+}
+```
+
+3. Next we will look at adding the new Compute Instance (`ibm_is_instance`) and also add a resource for the Floating IP (`ibm_is_floating_ip`). Additionally, if you wish to see the Floating IP address assigned to the third instance, you can add a new output variable in the `outputs.tf` file.
+
+```
+resource "ibm_is_instance" "instance3" {
+  name    = "instance3"
+  image   = "${var.image}"
+  profile = "${var.profile}"
+
+  primary_network_interface = {
+    subnet = "${ibm_is_subnet.subnet3.id}"
+  }
+  vpc  = "${ibm_is_vpc.vpc1.id}"
+  zone = "${var.zone3}"
+  keys = ["${ibm_is_ssh_key.ssh1.id}"]
+  user_data = "${data.template_cloudinit_config.cloud-init-apptier.rendered}"
+}
+```
+
+```
+resource "ibm_is_floating_ip" "floatingip3" {
+  name = "fip3"
+  target = "${ibm_is_instance.instance3.primary_network_interface.0.id}"
+}
+```
+
+```
+output "FloatingIP-3" {
+    value = "${ibm_is_floating_ip.floatingip3.address}"
+}
+```
 
 
-License
--------
+4. We have Security Group resources that get created, but these resources also have a `depends_on` array defined for the floating IP resources. We should add the zone 3 floating IP to these resources so they do not get created prior to all three zone floating IPs finish being created. This applies to both the `sg1_tcp_rule_22` and `sg1_tcp_rule_80` resources.
 
-OKD is licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/).#   R e p o B B  
- #   R e p o B B  
- 
+```
+  depends_on = ["ibm_is_floating_ip.floatingip1", "ibm_is_floating_ip.floatingip2", "ibm_is_floating_ip.floatingip3"]
+```
+
+5. Now that we have all of the appropriate resources defined for the new additional zone, we can now add the Load Balancer Pool Member (`ibm_is_lb_pool_member`) for the third instance.
+
+```
+resource "ibm_is_lb_pool_member" "lb1-pool-member3" {
+  count = 1
+  lb = "${ibm_is_lb.lb1.id}"
+  pool = "${ibm_is_lb_pool.lb1-pool.id}"
+  port = "80"
+  target_address = "${ibm_is_instance.instance3.primary_network_interface.0.primary_ipv4_address}"
+}
+```
+6. After making all of the modifications to the appropriate files, you will now need to `commit` and `push` your changes back to your repository. Once you have completed this, and verified that the files have been pushed back into the repository, you will need to go back in to your Schematics Workspace, under Settings, and click "Pull Latest".
+
+![Workspace Settings - Pull Latest](docs/workspace-settings-pull-latest.png)
+
+7. After you have pulled the latest changes into your Schematics Workspace, you should now see the new variables listed. Go ahead and provide values if you wish to modify them from the default values you may have specified. Also, make certain the CIDR block that you specify for zone 3, fits within the  VPC CIDR block that you previously configured.
+
+8. Now with the variables updated and all of the new resources defined in your template, it is time to apply these changes. We can do this by going back to the "Activity" screen in your Schematics Workspace. Click the "Generate Plan" so we can see the modifications that will be made to the infrastructre. You will notice the resources that will need to be created as well as a few resources will be removed since they will be recreated. If the Plan is successful, you can now "Apply" the plan. If there were errors, try to figure out what may have caused the issue by viewing the log for the plan.
+
+9. Follow the log as the resources are being created and/or recreated. At the end, take note of the URL, it should be the same as you had previously, and test that you get the nginx sample web page.
+
+## Task 5: Delete Resources and Workspace
+
+In this lab you have successfully built an initial 2 zone environment, attached a load balancer, and learned how to add an additional zone to the plan. To finish up with this lab, all you need to do now is delete your resources. You can also delete the Workspace if you choose to not keep it. 
+
+1. Select the "Delete" option in the Action Menu to begin the process.
+
+![Workspace Delete](docs/workspace-action-delete.png)
+
+2. In the popup, select if you wish to remove the workspace or just the resources. Once you have made your selections, click the "Delete" button. This will begin the process of removing resources. Once it is started, you can follow the log to watch the progress of this step and wait for completion. 
+
+![Workspace Delete](docs/workspace-delete-popup.png)
+
+3. Congratulations, you have completed the lab. All resources should now be removed. Think of other ways you may be able to modify the template. Possibly try adding additional instances to each of the zones, and add them as members to the load balancer as well.
+
