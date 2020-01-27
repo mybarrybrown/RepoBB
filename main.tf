@@ -96,3 +96,19 @@ resource "ibm_is_security_group_rule" "sg1_tcp_rule_80" {
     port_max = "80"
   }
 }
+
+resource "ibm_is_vpc_address_prefix" "vpc-ap3" {
+  name = "vpc-ap3"
+  zone = "${var.zone3}"
+  vpc  = "${ibm_is_vpc.vpc1.id}"
+  cidr = "${var.zone3_cidr}"
+}
+
+resource "ibm_is_subnet" "subnet3" {
+  name            = "subnet3"
+  vpc             = "${ibm_is_vpc.vpc1.id}"
+  zone            = "${var.zone3}"
+  ipv4_cidr_block = "${var.zone3_cidr}"
+  depends_on      = ["ibm_is_vpc_address_prefix.vpc-ap3"]
+}
+
