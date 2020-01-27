@@ -1,14 +1,18 @@
 variable "vpc_name" {
-  default = "vpc-fs2020-lab"
+  default = "vpc-fs2020-lab1"
   description = "Specify a name for you VPC"
 }
 
 variable "vpc1_cidr" {
-  default = "172.16.0.0/16"
+  default = "173.16.0.0/16"
   description = "Default CIDR for the VPC network"
 }
 
 variable "zone1" {
+  default = "us-south-1"
+  description = "Define the 1st zone of the region"
+}
+variable "zone3" {
   default = "us-south-1"
   description = "Define the 1st zone of the region"
 }
@@ -19,12 +23,16 @@ variable "zone2" {
 }
 
 variable "zone1_cidr" {
-  default = "172.16.1.0/24"
+  default = "173.16.1.0/24"
   description = "CIDR block to be used for zone 1"
 }
 
 variable "zone2_cidr" {
-  default = "172.16.2.0/24"
+  default = "173.16.2.0/24"
+  description = "CIDR block to be used for zone 2"
+}
+variable "zone3_cidr" {
+  default = "173.16.3.0/24"
   description = "CIDR block to be used for zone 2"
 }
 
